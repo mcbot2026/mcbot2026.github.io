@@ -470,10 +470,18 @@ h2 {
   color: #ffd7dd;
 }
 
-.action-running[data-step]::before,
-.action-ok[data-step]::before,
+.action-running[data-step]::before {
+  background: #8fc7ff;
+  color: #071018;
+}
+
+.action-ok[data-step]::before {
+  background: #2dd4a7;
+  color: #071018;
+}
+
 .action-error[data-step]::before {
-  background: currentColor;
+  background: #ef5b6d;
   color: #071018;
 }
 
