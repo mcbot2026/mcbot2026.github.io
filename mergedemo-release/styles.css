@@ -252,6 +252,7 @@ h2 {
 #androidView,
 #wechatView,
 #tasksView {
+  width: 100%;
   max-width: 960px;
   margin: 0 auto;
 }
@@ -405,13 +406,15 @@ h2 {
 }
 
 .tabbar {
-  display: inline-flex;
+  display: flex;
   gap: 4px;
+  width: max-content;
+  max-width: 100%;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: #111821;
   padding: 4px;
-  margin-bottom: 14px;
+  margin: 0 auto 14px;
 }
 
 .tab {
