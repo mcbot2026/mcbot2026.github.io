@@ -249,6 +249,13 @@ h2 {
   display: block;
 }
 
+#androidView,
+#wechatView,
+#tasksView {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -420,7 +427,7 @@ h2 {
 }
 
 .command-panel {
-  max-width: 860px;
+  width: 100%;
 }
 
 .field {
