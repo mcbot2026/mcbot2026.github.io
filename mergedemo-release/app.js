@@ -1,16 +1,29 @@
 const STORAGE_KEY = 'mergedemo.release.console.config.v1';
 const POLL_INTERVAL_MS = 5000;
 const TERMINAL_JOB_STATUSES = new Set([
+  'active-base',
   'blocked',
   'built',
+  'cancelled',
+  'checked',
   'complete',
   'dry-run',
   'exported',
   'failed',
   'patch-recorded',
+  'patch-verified',
   'published',
   'recovered',
   'resources-verified',
+  'uploaded',
+  'wechat-dev-uploaded',
+  'wechat-preview-ready',
+]);
+
+const FAILED_JOB_STATUSES = new Set([
+  'blocked',
+  'cancelled',
+  'failed',
 ]);
 
 const state = {
@@ -469,7 +482,7 @@ async function pollReleaseProgress(commandId) {
   }
 
   const compactJob = job ? compactJobStatus(job) : null;
-  const finishedOk = compactJob?.ok !== false && compactJob?.status !== 'failed';
+  const finishedOk = compactJob?.ok !== false && !FAILED_JOB_STATUSES.has(compactJob?.status);
   logPolling('发布进度', {
     commandId,
     apiRunId: state.poll.apiRunId,
