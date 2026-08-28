@@ -443,6 +443,40 @@ h2 {
   padding: 0 12px;
 }
 
+.primary-button.action-running,
+.secondary-button.action-running,
+.ghost-button.action-running,
+.command-button.action-running {
+  background: #172a42;
+  border-color: #4b79aa;
+  color: #d8ebff;
+}
+
+.primary-button.action-ok,
+.secondary-button.action-ok,
+.ghost-button.action-ok,
+.command-button.action-ok {
+  background: #12362d;
+  border-color: #2dd4a7;
+  color: #c7f8e9;
+}
+
+.primary-button.action-error,
+.secondary-button.action-error,
+.ghost-button.action-error,
+.command-button.action-error {
+  background: #3b1821;
+  border-color: #ef5b6d;
+  color: #ffd7dd;
+}
+
+.action-running[data-step]::before,
+.action-ok[data-step]::before,
+.action-error[data-step]::before {
+  background: currentColor;
+  color: #071018;
+}
+
 .ghost-button.compact,
 .icon-button {
   min-height: 38px;

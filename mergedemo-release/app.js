@@ -27,6 +27,7 @@ const state = {
     jobId: null,
     signature: '',
     statusElement: null,
+    actionButton: null,
   },
 };
 
@@ -218,6 +219,28 @@ function setActionStatus(source, kind, title, value = '') {
   status.textContent = payload ? `[${time}] ${title}\n${payload}` : `[${time}] ${title}`;
 }
 
+function markActionButton(button, kind) {
+  if (!button) {
+    return;
+  }
+  button.classList.remove('action-running', 'action-ok', 'action-error');
+  if (kind) {
+    button.classList.add(`action-${kind}`);
+  }
+}
+
+function responseSucceeded(payload) {
+  const result = payload?.result ?? payload;
+  const json = result?.json ?? payload?.json ?? null;
+  const summary = json?.summary ?? null;
+  const exitCode = result?.exitCode;
+  return payload?.ok !== false
+    && result?.ok !== false
+    && json?.ok !== false
+    && summary?.ok !== false
+    && (exitCode === null || exitCode === undefined || exitCode === 0);
+}
+
 function setApiState(kind, text) {
   const pill = $('#apiState');
   const dot = pill.querySelector('.dot');
@@ -307,6 +330,7 @@ function clearPolling() {
     jobId: null,
     signature: '',
     statusElement: null,
+    actionButton: null,
   };
 }
 
@@ -445,6 +469,7 @@ async function pollReleaseProgress(commandId) {
   }
 
   const compactJob = job ? compactJobStatus(job) : null;
+  const finishedOk = compactJob?.ok !== false && compactJob?.status !== 'failed';
   logPolling('发布进度', {
     commandId,
     apiRunId: state.poll.apiRunId,
@@ -457,7 +482,9 @@ async function pollReleaseProgress(commandId) {
   await refreshStatus(false);
 
   if (finished) {
-    setActionStatus(state.poll.statusElement, 'ok', '发布追踪结束', compactJob ?? { apiRunId: apiRun?.metadata?.apiRunId ?? state.poll.apiRunId });
+    const kind = finishedOk ? 'ok' : 'error';
+    markActionButton(state.poll.actionButton, kind);
+    setActionStatus(state.poll.statusElement, kind, '发布追踪结束', compactJob ?? { apiRunId: apiRun?.metadata?.apiRunId ?? state.poll.apiRunId });
     clearPolling();
     setApiState('ok', '已连接');
     log('发布追踪结束', compactJob ?? { apiRunId: apiRun?.metadata?.apiRunId ?? state.poll.apiRunId });
@@ -477,6 +504,7 @@ function startReleasePolling(commandId, { apiRunId, jobId }, feedbackSource = nu
   state.poll.apiRunId = apiRunId;
   state.poll.jobId = jobId;
   state.poll.statusElement = actionStatusFromSource(feedbackSource);
+  state.poll.actionButton = feedbackSource?.closest?.('button') ?? null;
   updateJobInputs(jobId, commandId);
   setApiState('ok', '执行中');
   log('开始追踪发布', { commandId, apiRunId, jobId });
@@ -484,6 +512,7 @@ function startReleasePolling(commandId, { apiRunId, jobId }, feedbackSource = nu
   const runOnce = () => {
     pollReleaseProgress(commandId).catch((error) => {
       setApiState('error', '追踪异常');
+      markActionButton(state.poll.actionButton, 'error');
       setActionStatus(state.poll.statusElement, 'error', '发布追踪失败', stackOf(error));
       log('发布追踪失败', stackOf(error));
       clearPolling();
@@ -541,13 +570,17 @@ function commandIdFor(action) {
 async function handleAction(action, feedbackSource = null) {
   if (action === 'lockStatus') {
     const result = await apiRun('lockStatus');
-    setActionStatus(feedbackSource, 'ok', '查看发布锁完成', result);
+    const kind = responseSucceeded(result) ? 'ok' : 'error';
+    markActionButton(feedbackSource, kind);
+    setActionStatus(feedbackSource, kind, '查看发布锁完成', result);
     log('发布锁', result);
     return;
   }
   if (action === 'jobStatus') {
     const result = await apiRun('jobStatus');
-    setActionStatus(feedbackSource, 'ok', '查询最近任务完成', result);
+    const kind = responseSucceeded(result) ? 'ok' : 'error';
+    markActionButton(feedbackSource, kind);
+    setActionStatus(feedbackSource, kind, '查询最近任务完成', result);
     log('最近任务', result);
     return;
   }
@@ -557,6 +590,7 @@ async function handleAction(action, feedbackSource = null) {
     const label = actionLabels[action] ?? action;
     const confirmed = window.confirm(`确认执行：${label}`);
     if (!confirmed) {
+      markActionButton(feedbackSource, null);
       setActionStatus(feedbackSource, 'muted', '已取消', label);
       log('已取消', label);
       return;
@@ -571,15 +605,19 @@ async function handleAction(action, feedbackSource = null) {
   const apiRunId = apiRunIdFromPayload(result);
   updateJobInputs(jobId, commandId);
   if (execute && (apiRunId || jobId)) {
+    markActionButton(feedbackSource, 'running');
     setActionStatus(feedbackSource, 'running', `${label}已提交，正在追踪`, result);
     startReleasePolling(commandId, { apiRunId, jobId }, feedbackSource);
   } else {
-    setActionStatus(feedbackSource, 'ok', `${label}完成`, result);
+    const kind = responseSucceeded(result) ? 'ok' : 'error';
+    markActionButton(feedbackSource, kind);
+    setActionStatus(feedbackSource, kind, `${label}完成`, result);
   }
 }
 
 async function runUiTask(title, task, onError = null, feedbackSource = null) {
   $all('button').forEach((button) => button.disabled = true);
+  markActionButton(feedbackSource, 'running');
   setActionStatus(feedbackSource, 'running', `${title}执行中...`);
   try {
     await task();
@@ -588,6 +626,7 @@ async function runUiTask(title, task, onError = null, feedbackSource = null) {
       onError(error);
     }
     setApiState('error', '异常');
+    markActionButton(feedbackSource, 'error');
     setActionStatus(feedbackSource, 'error', `${title}失败`, stackOf(error));
     log(`${title} 失败`, stackOf(error));
   } finally {
