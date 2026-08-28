@@ -283,7 +283,7 @@ function formatBytes(value) {
   if (!Number.isFinite(value)) {
     return '缺失';
   }
-  const units = ['B', 'KiB', 'MiB', 'GiB'];
+  const units = ['B', 'KB', 'MB', 'GB'];
   let size = value;
   let unitIndex = 0;
   while (size >= 1024 && unitIndex < units.length - 1) {
@@ -348,9 +348,13 @@ function releaseSummaryTitle(summary) {
 }
 
 function commitSubject(commit) {
-  return commit?.pullRequestLabel
-    ? `${commit.subject} (${commit.pullRequestLabel})`
-    : commit?.subject;
+  if (!commit?.subject) {
+    return null;
+  }
+  if (!commit.pullRequestLabel || commit.subject.includes(commit.pullRequestLabel)) {
+    return commit.subject;
+  }
+  return `${commit.subject} (${commit.pullRequestLabel})`;
 }
 
 function appendChangeSummary(lines, summary) {
@@ -358,7 +362,7 @@ function appendChangeSummary(lines, summary) {
   if (!Array.isArray(changes) || changes.length === 0) {
     return;
   }
-  lines.push('', '本次包含改动：');
+  lines.push('', '本次包含改动');
   for (const item of changes) {
     const text = String(item).trim();
     if (text.length > 0) {
@@ -382,18 +386,19 @@ function releaseSummaryText(payload) {
   const projectCommit = summary.projectCommit ?? activeBase.projectCommit ?? release.projectCommit ?? summary.versionDiff?.toCommit;
   const branch = summary.branch ?? activeBase.projectBranch ?? release.projectBranch;
   const projectSha = summary.projectSha ?? activeBase.projectSha ?? release.projectSha;
-  const lines = [`## ${title}`];
+  const lines = [title];
 
   if (summary.releaseType === 'base') {
     lines.push(
       line('AppVersion', activeBase.appVersion ?? release.appVersion),
       line('发布分支', `${valueOrMissing(branch)}@${shortSha(projectSha)}`),
       line('提交内容', commitSubject(projectCommit)),
-      line('任务ID', summary.jobId),
       line('ActiveBase', activeBase.baseReleaseId ?? release.releaseId),
+      line('Baseline', activeBase.baselineManifestPath ?? release.baselineManifestPath),
       line('下载 APK', summary.apkDownloadUrl ?? activeBase.apkDownloadUrl),
       line('大小', formatBytes(summary.apkBytes)),
       line('SHA256', summary.apkSha256),
+      line('资源版本文件', '未上传，首次发布热更时再发布 catalog、hash 和 app.txt'),
       line('用时', summary.buildDuration?.text),
     );
     appendChangeSummary(lines, summary);
@@ -401,7 +406,6 @@ function releaseSummaryText(payload) {
     lines.push(
       line('发布分支', `${valueOrMissing(branch)}@${shortSha(projectSha)}`),
       line('提交内容', commitSubject(projectCommit)),
-      line('任务ID', summary.jobId),
       line('ActiveBase', activeBase.baseReleaseId ?? release.baseReleaseId),
       line('PatchLevel', release.patchLevel),
       line('PatchCode', release.patchCode ?? activeBase.patchCode),
@@ -411,7 +415,6 @@ function releaseSummaryText(payload) {
   } else if (summary.releaseType === 'wechat-development') {
     lines.push(
       line('导出分支', `${valueOrMissing(branch)}@${shortSha(projectSha)}`),
-      line('任务ID', summary.jobId),
       line('AppVersion', manifest.appVersion),
       line('PatchCode', manifest.patchCode),
       line('Data CDN', manifest.dataCdn),
@@ -422,7 +425,6 @@ function releaseSummaryText(payload) {
   } else if (summary.releaseType === 'wechat-resource-upload') {
     lines.push(
       line('来源导出任务', summary.sourceExportJobId),
-      line('任务ID', summary.jobId),
       line('AppVersion', manifest.appVersion),
       line('PatchCode', manifest.patchCode),
       line('Data CDN', manifest.dataCdn),
@@ -432,7 +434,6 @@ function releaseSummaryText(payload) {
     );
   } else {
     lines.push(
-      line('任务ID', summary.jobId),
       line('来源资源任务', summary.sourceResourceJobId),
       line('来源导出任务', summary.sourceExportJobId),
       line('AppVersion', manifest.appVersion),
