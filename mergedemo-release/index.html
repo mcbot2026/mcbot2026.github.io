@@ -112,16 +112,16 @@
                 <input id="baseBranch" value="Dev" autocomplete="off">
               </label>
               <div class="actions-row">
-                <button type="button" class="secondary-button" data-action="preflightBase"><i data-lucide="shield-check"></i><span>预检</span></button>
-                <button type="button" class="primary-button danger" data-action="runBaseBuild"><i data-lucide="hammer"></i><span>开始构建</span></button>
+                <button type="button" class="secondary-button" data-step="1" data-action="preflightBase"><i data-lucide="shield-check"></i><span>预检</span></button>
+                <button type="button" class="primary-button danger" data-step="2" data-action="runBaseBuild"><i data-lucide="hammer"></i><span>开始构建</span></button>
               </div>
               <label class="field">
                 <span>Base Job ID</span>
                 <input id="baseJobId" placeholder="base-YYYYMMDD-HHMMSS-000" autocomplete="off">
               </label>
               <div class="actions-row">
-                <button type="button" class="secondary-button danger" data-action="uploadBaseApk"><i data-lucide="upload-cloud"></i><span>上传 APK</span></button>
-                <button type="button" class="primary-button danger" data-action="activateBase"><i data-lucide="badge-check"></i><span>激活 Base</span></button>
+                <button type="button" class="secondary-button danger" data-step="3" data-action="uploadBaseApk"><i data-lucide="upload-cloud"></i><span>上传 APK</span></button>
+                <button type="button" class="primary-button danger" data-step="4" data-action="activateBase"><i data-lucide="badge-check"></i><span>激活 Base</span></button>
               </div>
             </section>
           </div>
@@ -137,17 +137,17 @@
                 <input id="patchBranch" value="Dev" autocomplete="off">
               </label>
               <div class="actions-row">
-                <button type="button" class="secondary-button" data-action="preflightPatch"><i data-lucide="shield-check"></i><span>预检</span></button>
-                <button type="button" class="secondary-button danger" data-action="checkPatch"><i data-lucide="scan-search"></i><span>检测热更</span></button>
-                <button type="button" class="primary-button danger" data-action="runPatchBuild"><i data-lucide="hammer"></i><span>构建 Patch</span></button>
+                <button type="button" class="secondary-button" data-step="1" data-action="preflightPatch"><i data-lucide="shield-check"></i><span>预检</span></button>
+                <button type="button" class="secondary-button danger" data-step="2" data-action="checkPatch"><i data-lucide="scan-search"></i><span>检测热更</span></button>
+                <button type="button" class="primary-button danger" data-step="3" data-action="runPatchBuild"><i data-lucide="hammer"></i><span>构建 Patch</span></button>
               </div>
               <label class="field">
                 <span>Patch Job ID</span>
                 <input id="patchJobId" placeholder="patch-YYYYMMDD-HHMMSS-000" autocomplete="off">
               </label>
               <div class="actions-row">
-                <button type="button" class="secondary-button danger" data-action="publishPatch"><i data-lucide="radio-tower"></i><span>发布资源</span></button>
-                <button type="button" class="primary-button danger" data-action="recordPatch"><i data-lucide="save"></i><span>记录 Patch</span></button>
+                <button type="button" class="secondary-button danger" data-step="4" data-action="publishPatch"><i data-lucide="radio-tower"></i><span>发布资源</span></button>
+                <button type="button" class="primary-button danger" data-step="5" data-action="recordPatch"><i data-lucide="save"></i><span>记录 Patch</span></button>
                 <button type="button" class="ghost-button danger" data-action="recoverPatch"><i data-lucide="rotate-ccw"></i><span>恢复</span></button>
               </div>
             </section>
@@ -167,8 +167,8 @@
                 <span class="status-pill"><span class="dot"></span>Dev</span>
               </div>
               <div class="actions-row">
-                <button type="button" class="secondary-button" data-action="wechatPreflight"><i data-lucide="shield-check"></i><span>预检</span></button>
-                <button type="button" class="primary-button danger" data-action="wechatExport"><i data-lucide="package-open"></i><span>导出</span></button>
+                <button type="button" class="secondary-button" data-step="1" data-action="wechatPreflight"><i data-lucide="shield-check"></i><span>预检</span></button>
+                <button type="button" class="primary-button danger" data-step="2" data-action="wechatExport"><i data-lucide="package-open"></i><span>导出</span></button>
                 <button type="button" class="ghost-button danger" data-action="wechatRecover"><i data-lucide="rotate-ccw"></i><span>恢复</span></button>
               </div>
               <label class="field">
@@ -194,8 +194,8 @@
                 <input id="wechatJobId" placeholder="留空使用最新成功导出" autocomplete="off">
               </label>
               <div class="actions-row">
-                <button type="button" class="secondary-button" data-action="wechatResourcesPreflight"><i data-lucide="shield-check"></i><span>预检</span></button>
-                <button type="button" class="primary-button danger" data-action="wechatUploadResources"><i data-lucide="upload-cloud"></i><span>上传资源</span></button>
+                <button type="button" class="secondary-button" data-step="1" data-action="wechatResourcesPreflight"><i data-lucide="shield-check"></i><span>预检</span></button>
+                <button type="button" class="primary-button danger" data-step="2" data-action="wechatUploadResources"><i data-lucide="upload-cloud"></i><span>上传资源</span></button>
                 <button type="button" class="ghost-button danger" data-action="wechatRecoverResources"><i data-lucide="rotate-ccw"></i><span>恢复</span></button>
               </div>
             </section>
