@@ -26,6 +26,7 @@ const state = {
     apiRunId: null,
     jobId: null,
     signature: '',
+    statusElement: null,
   },
 };
 
@@ -56,7 +57,15 @@ const dangerousActions = new Set([
 ]);
 
 const actionLabels = {
+  envCheck: '检查环境',
+  credentialsCheck: '检查凭据',
+  resourcePublishHealth: '检查上传工具',
+  lockStatus: '查看发布锁',
+  jobStatus: '查询最近任务',
+  jobStatusByInput: '查询任务',
+  preflightBase: 'Base 预检',
   runBaseBuild: '开始 Base 构建',
+  preflightPatch: 'Patch 预检',
   runPatchBuild: '开始 Patch 构建',
   checkPatch: '检测热更',
   uploadBaseApk: '上传 Base APK',
@@ -65,10 +74,13 @@ const actionLabels = {
   recordPatch: '记录 Patch',
   recoverPatch: '恢复 Patch',
   cancelJob: '终止任务',
+  wechatPreflight: '微信导出预检',
   wechatExport: '导出微信开发包',
   wechatRecover: '恢复微信导出',
+  wechatResourcesPreflight: '微信资源预检',
   wechatUploadResources: '上传微信资源',
   wechatRecoverResources: '恢复微信资源上传',
+  versionStatus: '查看版本',
   setVersion: '设置临时 AppVersion',
   clearVersion: '清除临时 AppVersion',
 };
@@ -180,6 +192,32 @@ function log(title, value) {
   $('#logOutput').textContent = `[${time}] ${title}\n${payload}\n\n${$('#logOutput').textContent}`;
 }
 
+function formatFeedback(value) {
+  if (value === null || value === undefined || value === '') {
+    return '';
+  }
+  return typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+}
+
+function actionStatusFromSource(source) {
+  if (source?.classList?.contains('action-status')) {
+    return source;
+  }
+  const panelStatus = source?.closest?.('.panel')?.querySelector('.action-status');
+  return panelStatus ?? null;
+}
+
+function setActionStatus(source, kind, title, value = '') {
+  const status = actionStatusFromSource(source);
+  if (!status) {
+    return;
+  }
+  const payload = formatFeedback(value);
+  const time = new Date().toLocaleTimeString();
+  status.className = `action-status ${kind}`;
+  status.textContent = payload ? `[${time}] ${title}\n${payload}` : `[${time}] ${title}`;
+}
+
 function setApiState(kind, text) {
   const pill = $('#apiState');
   const dot = pill.querySelector('.dot');
@@ -268,6 +306,7 @@ function clearPolling() {
     apiRunId: null,
     jobId: null,
     signature: '',
+    statusElement: null,
   };
 }
 
@@ -418,18 +457,26 @@ async function pollReleaseProgress(commandId) {
   await refreshStatus(false);
 
   if (finished) {
+    setActionStatus(state.poll.statusElement, 'ok', '发布追踪结束', compactJob ?? { apiRunId: apiRun?.metadata?.apiRunId ?? state.poll.apiRunId });
     clearPolling();
     setApiState('ok', '已连接');
     log('发布追踪结束', compactJob ?? { apiRunId: apiRun?.metadata?.apiRunId ?? state.poll.apiRunId });
   } else {
     setApiState('ok', '执行中');
+    setActionStatus(state.poll.statusElement, 'running', '发布执行中', {
+      commandId,
+      apiRunId: state.poll.apiRunId,
+      apiRunAlive,
+      job: compactJob,
+    });
   }
 }
 
-function startReleasePolling(commandId, { apiRunId, jobId }) {
+function startReleasePolling(commandId, { apiRunId, jobId }, feedbackSource = null) {
   clearPolling();
   state.poll.apiRunId = apiRunId;
   state.poll.jobId = jobId;
+  state.poll.statusElement = actionStatusFromSource(feedbackSource);
   updateJobInputs(jobId, commandId);
   setApiState('ok', '执行中');
   log('开始追踪发布', { commandId, apiRunId, jobId });
@@ -437,6 +484,7 @@ function startReleasePolling(commandId, { apiRunId, jobId }) {
   const runOnce = () => {
     pollReleaseProgress(commandId).catch((error) => {
       setApiState('error', '追踪异常');
+      setActionStatus(state.poll.statusElement, 'error', '发布追踪失败', stackOf(error));
       log('发布追踪失败', stackOf(error));
       clearPolling();
     });
@@ -490,14 +538,16 @@ function commandIdFor(action) {
   return action === 'jobStatusByInput' ? 'jobStatus' : action;
 }
 
-async function handleAction(action) {
+async function handleAction(action, feedbackSource = null) {
   if (action === 'lockStatus') {
     const result = await apiRun('lockStatus');
+    setActionStatus(feedbackSource, 'ok', '查看发布锁完成', result);
     log('发布锁', result);
     return;
   }
   if (action === 'jobStatus') {
     const result = await apiRun('jobStatus');
+    setActionStatus(feedbackSource, 'ok', '查询最近任务完成', result);
     log('最近任务', result);
     return;
   }
@@ -507,6 +557,7 @@ async function handleAction(action) {
     const label = actionLabels[action] ?? action;
     const confirmed = window.confirm(`确认执行：${label}`);
     if (!confirmed) {
+      setActionStatus(feedbackSource, 'muted', '已取消', label);
       log('已取消', label);
       return;
     }
@@ -514,17 +565,22 @@ async function handleAction(action) {
 
   const commandId = commandIdFor(action);
   const result = await apiRun(commandId, paramsFor(action), execute);
-  log(actionLabels[action] ?? commandId, result);
+  const label = actionLabels[action] ?? commandId;
+  log(label, result);
   const jobId = jobIdFromPayload(result);
   const apiRunId = apiRunIdFromPayload(result);
   updateJobInputs(jobId, commandId);
   if (execute && (apiRunId || jobId)) {
-    startReleasePolling(commandId, { apiRunId, jobId });
+    setActionStatus(feedbackSource, 'running', `${label}已提交，正在追踪`, result);
+    startReleasePolling(commandId, { apiRunId, jobId }, feedbackSource);
+  } else {
+    setActionStatus(feedbackSource, 'ok', `${label}完成`, result);
   }
 }
 
-async function runUiTask(title, task, onError = null) {
+async function runUiTask(title, task, onError = null, feedbackSource = null) {
   $all('button').forEach((button) => button.disabled = true);
+  setActionStatus(feedbackSource, 'running', `${title}执行中...`);
   try {
     await task();
   } catch (error) {
@@ -532,6 +588,7 @@ async function runUiTask(title, task, onError = null) {
       onError(error);
     }
     setApiState('error', '异常');
+    setActionStatus(feedbackSource, 'error', `${title}失败`, stackOf(error));
     log(`${title} 失败`, stackOf(error));
   } finally {
     $all('button').forEach((button) => button.disabled = false);
@@ -552,7 +609,10 @@ function bindEvents() {
     button.addEventListener('click', () => setTab('wechat', button.dataset.tab));
   });
   $all('[data-action]').forEach((button) => {
-    button.addEventListener('click', () => runUiTask(button.dataset.action, () => handleAction(button.dataset.action)));
+    button.addEventListener('click', () => {
+      const action = button.dataset.action;
+      runUiTask(actionLabels[action] ?? commandIdFor(action), () => handleAction(action, button), null, button);
+    });
   });
   $('#refreshButton').addEventListener('click', () => runUiTask('刷新状态', refreshStatus));
   $('#settingsButton').addEventListener('click', openSettings);

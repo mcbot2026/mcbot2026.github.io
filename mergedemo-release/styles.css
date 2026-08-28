@@ -324,6 +324,41 @@ h2 {
   margin-bottom: 8px;
 }
 
+.action-status {
+  width: 100%;
+  min-height: 64px;
+  max-height: 180px;
+  overflow: auto;
+  margin: 14px 0 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #0d1218;
+  color: var(--text);
+  padding: 12px;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.action-status.muted {
+  color: var(--muted);
+}
+
+.action-status.running {
+  border-color: #3e5778;
+  color: #cfe3ff;
+}
+
+.action-status.ok {
+  border-color: #235b4c;
+  color: #bcf4e4;
+}
+
+.action-status.error {
+  border-color: #793040;
+  color: #ffd2d9;
+}
+
 .button-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
