@@ -214,6 +214,18 @@ function formToSettings() {
   };
 }
 
+function persistSettings(closeDialog = true) {
+  saveConfig(formToSettings());
+  setApiState(state.config.apiBaseUrl ? 'ok' : 'muted', state.config.apiBaseUrl ? '已配置' : '未连接');
+  log('配置已保存', {
+    apiBaseUrl: state.config.apiBaseUrl,
+    hasToken: Boolean(state.config.apiToken),
+  });
+  if (closeDialog) {
+    $('#settingsDialog').close();
+  }
+}
+
 function openSettings() {
   settingsToForm();
   $('#settingsDialog').showModal();
@@ -343,13 +355,15 @@ function bindEvents() {
   $('#clearLog').addEventListener('click', () => {
     $('#logOutput').textContent = '等待操作。';
   });
+  $('#settingsForm').addEventListener('submit', (event) => {
+    event.preventDefault();
+    persistSettings();
+  });
   $('#saveSettings').addEventListener('click', () => {
-    saveConfig(formToSettings());
-    $('#settingsDialog').close();
-    setApiState(state.config.apiBaseUrl ? 'ok' : 'muted', state.config.apiBaseUrl ? '已配置' : '未连接');
+    persistSettings();
   });
   $('#testConnection').addEventListener('click', () => {
-    saveConfig(formToSettings());
+    persistSettings(false);
     runUiTask('测试连接', async () => {
       const result = await apiGet('/api/health', false);
       setApiState('ok', '已连接');
