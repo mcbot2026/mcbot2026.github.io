@@ -98,8 +98,22 @@ function saveConfig(config) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
 }
 
+function defaultApiBaseUrl() {
+  if (window.location.hostname.endsWith('github.io')) {
+    return '';
+  }
+  if (window.location.protocol !== 'http:' && window.location.protocol !== 'https:') {
+    return '';
+  }
+  return window.location.origin;
+}
+
+function effectiveApiBaseUrl() {
+  return state.config.apiBaseUrl.trim() || defaultApiBaseUrl();
+}
+
 function apiUrl(path) {
-  const base = state.config.apiBaseUrl.trim().replace(/\/+$/u, '');
+  const base = effectiveApiBaseUrl().replace(/\/+$/u, '');
   if (!base) {
     throw new Error('API 地址未配置。');
   }
@@ -171,6 +185,12 @@ function setApiState(kind, text) {
   const dot = pill.querySelector('.dot');
   dot.className = `dot ${kind === 'ok' ? '' : 'muted'}`;
   pill.lastChild.textContent = text;
+}
+
+function setSettingsStatus(kind, text) {
+  const status = $('#settingsStatus');
+  status.className = `settings-status ${kind}`;
+  status.textContent = text;
 }
 
 function short(value, fallback = '-') {
@@ -269,7 +289,7 @@ function renderStatus(data) {
   const latestJob = latestJobFromStatus(data);
 
   $('#metricApi').textContent = '已连接';
-  $('#metricApiDetail').textContent = state.config.apiBaseUrl;
+  $('#metricApiDetail').textContent = effectiveApiBaseUrl();
   $('#metricLock').textContent = lockJson?.status ?? (lockJson?.ok ? '空闲' : '未知');
   $('#metricLockDetail').textContent = lockJson?.jobId ?? lockJson?.releaseLock?.jobId ?? '-';
   $('#metricBase').textContent = activeBase?.releaseId ?? activeBase?.jobId ?? '未激活';
@@ -319,9 +339,12 @@ function formToSettings() {
 
 function persistSettings(closeDialog = true) {
   saveConfig(formToSettings());
-  setApiState(state.config.apiBaseUrl ? 'ok' : 'muted', state.config.apiBaseUrl ? '已配置' : '未连接');
+  const apiBaseUrl = effectiveApiBaseUrl();
+  setApiState(apiBaseUrl ? 'ok' : 'muted', apiBaseUrl ? '已配置' : '未连接');
+  setSettingsStatus(apiBaseUrl && state.config.apiToken ? 'ok' : '', apiBaseUrl && state.config.apiToken ? '配置已保存。' : '配置未完整。');
   log('配置已保存', {
-    apiBaseUrl: state.config.apiBaseUrl,
+    apiBaseUrl,
+    configuredApiBaseUrl: state.config.apiBaseUrl,
     hasToken: Boolean(state.config.apiToken),
   });
   if (closeDialog) {
@@ -331,7 +354,24 @@ function persistSettings(closeDialog = true) {
 
 function openSettings() {
   settingsToForm();
+  setSettingsStatus('', '等待测试。');
   $('#settingsDialog').showModal();
+}
+
+async function testConnection() {
+  persistSettings(false);
+  setSettingsStatus('', '测试中...');
+  const health = await apiGet('/api/health', false);
+  const commands = await apiGet('/api/commands');
+  const status = await apiGet('/api/status');
+  setApiState('ok', '已连接');
+  renderStatus(status);
+  setSettingsStatus('ok', `连接正常。命令 ${commands.commands.length} 个，发布锁 ${status.lockStatus?.json?.releaseLock?.active ? '占用' : '空闲'}。`);
+  log('测试连接', {
+    health,
+    commandCount: commands.commands.length,
+    status,
+  });
 }
 
 async function refreshStatus(writeLog = true) {
@@ -483,11 +523,14 @@ async function handleAction(action) {
   }
 }
 
-async function runUiTask(title, task) {
+async function runUiTask(title, task, onError = null) {
   $all('button').forEach((button) => button.disabled = true);
   try {
     await task();
   } catch (error) {
+    if (onError !== null) {
+      onError(error);
+    }
     setApiState('error', '异常');
     log(`${title} 失败`, stackOf(error));
   } finally {
@@ -525,12 +568,7 @@ function bindEvents() {
     persistSettings();
   });
   $('#testConnection').addEventListener('click', () => {
-    persistSettings(false);
-    runUiTask('测试连接', async () => {
-      const result = await apiGet('/api/health', false);
-      setApiState('ok', '已连接');
-      log('测试连接', result);
-    });
+    runUiTask('测试连接', testConnection, (error) => setSettingsStatus('error', stackOf(error)));
   });
 }
 
@@ -540,7 +578,7 @@ function boot() {
   setView('overview');
   setTab('android', state.tab.android);
   setTab('wechat', state.tab.wechat);
-  setApiState(state.config.apiBaseUrl ? 'ok' : 'muted', state.config.apiBaseUrl ? '已配置' : '未连接');
+  setApiState(effectiveApiBaseUrl() ? 'ok' : 'muted', effectiveApiBaseUrl() ? '已配置' : '未连接');
   if (window.lucide) {
     window.lucide.createIcons();
   } else {

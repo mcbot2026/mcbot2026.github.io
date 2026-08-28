@@ -247,12 +247,13 @@
         </div>
         <label class="field">
           <span>API 地址</span>
-          <input id="apiBaseUrl" placeholder="https://release-api.example.com" autocomplete="off">
+          <input id="apiBaseUrl" placeholder="本地页面可留空，GitHub Pages 填公网 API" autocomplete="off">
         </label>
         <label class="field">
           <span>访问 Token</span>
           <input id="apiToken" type="password" autocomplete="off">
         </label>
+        <div class="settings-status" id="settingsStatus" aria-live="polite">等待测试。</div>
         <div class="actions-row end">
           <button class="secondary-button" type="button" id="testConnection"><i data-lucide="plug-zap"></i><span>测试</span></button>
           <button class="primary-button" type="button" id="saveSettings"><i data-lucide="save"></i><span>保存</span></button>

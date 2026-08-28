@@ -505,6 +505,28 @@ dialog::backdrop {
   padding: 18px;
 }
 
+.settings-status {
+  min-height: 38px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: #101720;
+  color: var(--muted);
+  padding: 9px 10px;
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.settings-status.ok {
+  border-color: rgb(45 212 167 / 45%);
+  color: #9ff1dc;
+}
+
+.settings-status.error {
+  border-color: rgb(239 91 109 / 52%);
+  color: #ffc4cc;
+}
+
 @media (max-width: 980px) {
   .app-shell {
     display: block;
