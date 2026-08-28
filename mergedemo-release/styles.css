@@ -326,8 +326,8 @@ h2 {
 
 .action-status {
   width: 100%;
-  min-height: 64px;
-  max-height: 180px;
+  min-height: 220px;
+  max-height: 420px;
   overflow: auto;
   margin: 14px 0 0;
   border: 1px solid var(--border);
