@@ -2,13 +2,16 @@
 
 MergeDemo release console static frontend.
 
-GitHub Pages URL:
+GitHub Pages URLs:
 
 ```text
 https://mcbot2026.github.io/
+https://mcbot2026.github.io/mergedemo-release/
 ```
 
-This repository hosts only the browser UI. Build, upload, publish, and recovery commands still run on the packaging machine through the `MergeDemoReleaseTool` API and its local CLI whitelist.
+The root page is a lightweight tool index. The MergeDemo release console lives in `mergedemo-release/`.
+
+This repository hosts only browser UIs. Build, upload, publish, and recovery commands still run on the packaging machine through the `MergeDemoReleaseTool` API and its local CLI whitelist.
 
 In the page settings dialog, configure:
 

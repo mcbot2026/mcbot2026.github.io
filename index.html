@@ -4,260 +4,27 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="dark">
-    <title>MergeDemo 发布控制台</title>
+    <title>mcbot 控制台</title>
     <link rel="icon" href="data:,">
-    <link rel="stylesheet" href="./styles.css">
-    <script defer src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-    <script defer src="./app.js"></script>
+    <link rel="stylesheet" href="./home.css">
   </head>
   <body>
-    <div class="app-shell">
-      <aside class="sidebar" aria-label="主导航">
-        <div class="brand">
-          <div class="brand-mark">M</div>
-          <div>
-            <strong>Release Console</strong>
-            <span>MergeDemo 发布控制台</span>
-          </div>
+    <main class="home">
+      <header class="hero">
+        <div class="mark">M</div>
+        <div>
+          <h1>mcbot 控制台</h1>
+          <p>选择要打开的工具。</p>
         </div>
-        <nav class="nav-list">
-          <button class="nav-item active" type="button" data-view="overview"><i data-lucide="layout-dashboard"></i><span>总览</span></button>
-          <button class="nav-item" type="button" data-view="android"><i data-lucide="smartphone"></i><span>Android 发布</span></button>
-          <button class="nav-item" type="button" data-view="wechat"><i data-lucide="message-circle"></i><span>微信发布</span></button>
-          <button class="nav-item" type="button" data-view="tasks"><i data-lucide="list-checks"></i><span>任务记录</span></button>
-          <button class="nav-item" type="button" data-view="logs"><i data-lucide="terminal-square"></i><span>日志</span></button>
-        </nav>
-        <div class="sidebar-footer">
-          <button class="ghost-button" type="button" id="openSettings"><i data-lucide="settings"></i><span>配置</span></button>
-        </div>
-      </aside>
+      </header>
 
-      <main class="main">
-        <header class="topbar">
-          <div>
-            <h1 id="viewTitle">总览</h1>
-            <p id="viewSubtitle">查看发布状态、锁和最近任务。</p>
-          </div>
-          <div class="top-actions">
-            <span class="status-pill" id="apiState"><span class="dot muted"></span>未连接</span>
-            <button class="icon-button" type="button" id="refreshButton" title="刷新"><i data-lucide="refresh-cw"></i></button>
-            <button class="icon-button" type="button" id="settingsButton" title="配置"><i data-lucide="settings"></i></button>
-          </div>
-        </header>
-
-        <section class="view active" id="overviewView">
-          <div class="summary-grid">
-            <article class="metric">
-              <span>API</span>
-              <strong id="metricApi">未连接</strong>
-              <small id="metricApiDetail">等待配置</small>
-            </article>
-            <article class="metric">
-              <span>发布锁</span>
-              <strong id="metricLock">未知</strong>
-              <small id="metricLockDetail">-</small>
-            </article>
-            <article class="metric">
-              <span>ActiveBase</span>
-              <strong id="metricBase">未知</strong>
-              <small id="metricBaseDetail">-</small>
-            </article>
-            <article class="metric">
-              <span>版本设置</span>
-              <strong id="metricVersion">未知</strong>
-              <small id="metricVersionDetail">-</small>
-            </article>
-          </div>
-
-          <div class="content-grid">
-            <section class="panel wide">
-              <div class="panel-head">
-                <h2>当前任务</h2>
-                <button class="ghost-button compact" type="button" data-action="jobStatus"><i data-lucide="search"></i><span>查询最新</span></button>
-              </div>
-              <div class="task-block" id="currentTask">
-                <strong>暂无数据</strong>
-                <span>连接 API 后显示最近任务。</span>
-              </div>
-            </section>
-
-            <section class="panel">
-              <div class="panel-head">
-                <h2>快速检查</h2>
-              </div>
-              <div class="button-grid">
-                <button class="command-button" type="button" data-action="envCheck"><i data-lucide="monitor-check"></i><span>环境</span></button>
-                <button class="command-button" type="button" data-action="credentialsCheck"><i data-lucide="key-round"></i><span>凭据</span></button>
-                <button class="command-button" type="button" data-action="resourcePublishHealth"><i data-lucide="activity"></i><span>上传工具</span></button>
-                <button class="command-button" type="button" data-action="lockStatus"><i data-lucide="lock-keyhole"></i><span>发布锁</span></button>
-              </div>
-            </section>
-          </div>
-        </section>
-
-        <section class="view" id="androidView">
-          <div class="tabbar" role="tablist" aria-label="Android 发布类型">
-            <button class="tab active" type="button" data-tab="base">Base 发布</button>
-            <button class="tab" type="button" data-tab="patch">Patch 发布</button>
-          </div>
-
-          <div class="tab-panel active" id="baseTab">
-            <section class="panel command-panel">
-              <div class="panel-head">
-                <h2>Base 发布</h2>
-                <span class="status-pill"><span class="dot"></span>Android</span>
-              </div>
-              <label class="field">
-                <span>目标分支</span>
-                <input id="baseBranch" value="Dev" autocomplete="off">
-              </label>
-              <div class="actions-row">
-                <button type="button" class="secondary-button" data-action="preflightBase"><i data-lucide="shield-check"></i><span>预检</span></button>
-                <button type="button" class="primary-button danger" data-action="runBaseBuild"><i data-lucide="hammer"></i><span>开始构建</span></button>
-              </div>
-              <label class="field">
-                <span>Base Job ID</span>
-                <input id="baseJobId" placeholder="base-YYYYMMDD-HHMMSS-000" autocomplete="off">
-              </label>
-              <div class="actions-row">
-                <button type="button" class="secondary-button danger" data-action="uploadBaseApk"><i data-lucide="upload-cloud"></i><span>上传 APK</span></button>
-                <button type="button" class="primary-button danger" data-action="activateBase"><i data-lucide="badge-check"></i><span>激活 Base</span></button>
-              </div>
-            </section>
-          </div>
-
-          <div class="tab-panel" id="patchTab">
-            <section class="panel command-panel">
-              <div class="panel-head">
-                <h2>Patch 发布</h2>
-                <span class="status-pill amber"><span class="dot amber"></span>Hot Update</span>
-              </div>
-              <label class="field">
-                <span>目标分支</span>
-                <input id="patchBranch" value="Dev" autocomplete="off">
-              </label>
-              <div class="actions-row">
-                <button type="button" class="secondary-button" data-action="preflightPatch"><i data-lucide="shield-check"></i><span>预检</span></button>
-                <button type="button" class="secondary-button danger" data-action="checkPatch"><i data-lucide="scan-search"></i><span>检测热更</span></button>
-                <button type="button" class="primary-button danger" data-action="runPatchBuild"><i data-lucide="hammer"></i><span>构建 Patch</span></button>
-              </div>
-              <label class="field">
-                <span>Patch Job ID</span>
-                <input id="patchJobId" placeholder="patch-YYYYMMDD-HHMMSS-000" autocomplete="off">
-              </label>
-              <div class="actions-row">
-                <button type="button" class="secondary-button danger" data-action="publishPatch"><i data-lucide="radio-tower"></i><span>发布资源</span></button>
-                <button type="button" class="primary-button danger" data-action="recordPatch"><i data-lucide="save"></i><span>记录 Patch</span></button>
-                <button type="button" class="ghost-button danger" data-action="recoverPatch"><i data-lucide="rotate-ccw"></i><span>恢复</span></button>
-              </div>
-            </section>
-          </div>
-        </section>
-
-        <section class="view" id="wechatView">
-          <div class="tabbar" role="tablist" aria-label="微信发布类型">
-            <button class="tab active" type="button" data-tab="wechatExport">开发包导出</button>
-            <button class="tab" type="button" data-tab="wechatResources">资源上传</button>
-          </div>
-
-          <div class="tab-panel active" id="wechatExportTab">
-            <section class="panel command-panel">
-              <div class="panel-head">
-                <h2>微信开发包</h2>
-                <span class="status-pill"><span class="dot"></span>Dev</span>
-              </div>
-              <div class="actions-row">
-                <button type="button" class="secondary-button" data-action="wechatPreflight"><i data-lucide="shield-check"></i><span>预检</span></button>
-                <button type="button" class="primary-button danger" data-action="wechatExport"><i data-lucide="package-open"></i><span>导出</span></button>
-                <button type="button" class="ghost-button danger" data-action="wechatRecover"><i data-lucide="rotate-ccw"></i><span>恢复</span></button>
-              </div>
-              <label class="field">
-                <span>临时 AppVersion</span>
-                <input id="appVersion" placeholder="2.2.30" autocomplete="off">
-              </label>
-              <div class="actions-row">
-                <button type="button" class="secondary-button" data-action="versionStatus"><i data-lucide="info"></i><span>查看版本</span></button>
-                <button type="button" class="secondary-button danger" data-action="setVersion"><i data-lucide="edit-3"></i><span>设置版本</span></button>
-                <button type="button" class="ghost-button danger" data-action="clearVersion"><i data-lucide="eraser"></i><span>清除版本</span></button>
-              </div>
-            </section>
-          </div>
-
-          <div class="tab-panel" id="wechatResourcesTab">
-            <section class="panel command-panel">
-              <div class="panel-head">
-                <h2>微信资源上传</h2>
-                <span class="status-pill amber"><span class="dot amber"></span>Resource</span>
-              </div>
-              <label class="field">
-                <span>导出 Job ID</span>
-                <input id="wechatJobId" placeholder="留空使用最新成功导出" autocomplete="off">
-              </label>
-              <div class="actions-row">
-                <button type="button" class="secondary-button" data-action="wechatResourcesPreflight"><i data-lucide="shield-check"></i><span>预检</span></button>
-                <button type="button" class="primary-button danger" data-action="wechatUploadResources"><i data-lucide="upload-cloud"></i><span>上传资源</span></button>
-                <button type="button" class="ghost-button danger" data-action="wechatRecoverResources"><i data-lucide="rotate-ccw"></i><span>恢复</span></button>
-              </div>
-            </section>
-          </div>
-        </section>
-
-        <section class="view" id="tasksView">
-          <section class="panel command-panel">
-            <div class="panel-head">
-              <h2>任务记录</h2>
-              <button class="ghost-button compact" type="button" data-action="jobStatus"><i data-lucide="search"></i><span>最新</span></button>
-            </div>
-            <label class="field">
-              <span>Job ID</span>
-              <input id="taskJobId" placeholder="留空查询最新任务" autocomplete="off">
-            </label>
-            <div class="actions-row">
-              <button type="button" class="secondary-button" data-action="jobStatusByInput"><i data-lucide="file-search"></i><span>查询</span></button>
-              <button type="button" class="primary-button danger" data-action="cancelJob"><i data-lucide="square"></i><span>终止任务</span></button>
-            </div>
-          </section>
-        </section>
-
-        <section class="view" id="logsView">
-          <section class="panel logs-panel">
-            <div class="panel-head">
-              <h2>日志</h2>
-              <button class="ghost-button compact" type="button" id="clearLog"><i data-lucide="trash-2"></i><span>清空</span></button>
-            </div>
-            <pre id="logOutput">等待操作。</pre>
-          </section>
-        </section>
-      </main>
-    </div>
-
-    <nav class="bottom-nav" aria-label="移动端导航">
-      <button class="mobile-nav-item active" type="button" data-view="overview"><i data-lucide="layout-dashboard"></i><span>总览</span></button>
-      <button class="mobile-nav-item" type="button" data-view="android"><i data-lucide="smartphone"></i><span>Android</span></button>
-      <button class="mobile-nav-item" type="button" data-view="wechat"><i data-lucide="message-circle"></i><span>微信</span></button>
-      <button class="mobile-nav-item" type="button" data-view="tasks"><i data-lucide="list-checks"></i><span>任务</span></button>
-      <button class="mobile-nav-item" type="button" data-view="logs"><i data-lucide="terminal-square"></i><span>日志</span></button>
-    </nav>
-
-    <dialog id="settingsDialog">
-      <form method="dialog" class="settings-form">
-        <div class="panel-head">
-          <h2>API 配置</h2>
-          <button class="icon-button" value="cancel" title="关闭"><i data-lucide="x"></i></button>
-        </div>
-        <label class="field">
-          <span>API 地址</span>
-          <input id="apiBaseUrl" placeholder="https://release-api.example.com" autocomplete="off">
-        </label>
-        <label class="field">
-          <span>访问 Token</span>
-          <input id="apiToken" type="password" autocomplete="off">
-        </label>
-        <div class="actions-row end">
-          <button class="secondary-button" type="button" id="testConnection"><i data-lucide="plug-zap"></i><span>测试</span></button>
-          <button class="primary-button" type="button" id="saveSettings"><i data-lucide="save"></i><span>保存</span></button>
-        </div>
-      </form>
-    </dialog>
+      <section class="tool-list" aria-label="工具列表">
+        <a class="tool-card" href="./mergedemo-release/">
+          <span>MergeDemo</span>
+          <strong>发布控制台</strong>
+          <small>Android Base/Patch、微信开发包导出和资源上传。</small>
+        </a>
+      </section>
+    </main>
   </body>
 </html>
