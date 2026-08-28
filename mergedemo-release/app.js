@@ -230,6 +230,23 @@ function setActionStatus(source, kind, title, value = '') {
   const time = new Date().toLocaleTimeString();
   status.className = `action-status ${kind}`;
   status.textContent = payload ? `[${time}] ${title}\n${payload}` : `[${time}] ${title}`;
+  delete status.dataset.copyText;
+  delete status.dataset.displayText;
+  status.removeAttribute('title');
+}
+
+function setActionSummary(source, title, summaryText) {
+  const status = actionStatusFromSource(source);
+  if (!status) {
+    return;
+  }
+  const time = new Date().toLocaleTimeString();
+  const displayText = `[${time}] ${title}\n${summaryText}\n\n点击这里复制总结，可粘贴到企业微信。`;
+  status.className = 'action-status ok copyable';
+  status.textContent = displayText;
+  status.dataset.copyText = summaryText;
+  status.dataset.displayText = displayText;
+  status.title = '点击复制总结';
 }
 
 function markActionButton(button, kind) {
@@ -252,6 +269,210 @@ function responseSucceeded(payload) {
     && json?.ok !== false
     && summary?.ok !== false
     && (exitCode === null || exitCode === undefined || exitCode === 0);
+}
+
+function valueOrMissing(value) {
+  return short(value, '缺失');
+}
+
+function shortSha(value) {
+  return typeof value === 'string' && value.length > 8 ? value.slice(0, 8) : valueOrMissing(value);
+}
+
+function formatBytes(value) {
+  if (!Number.isFinite(value)) {
+    return '缺失';
+  }
+  const units = ['B', 'KiB', 'MiB', 'GiB'];
+  let size = value;
+  let unitIndex = 0;
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex += 1;
+  }
+  return `${size.toFixed(unitIndex === 0 ? 0 : 2)} ${units[unitIndex]}`;
+}
+
+function line(label, value) {
+  return `- ${label}：${valueOrMissing(value)}`;
+}
+
+function jsonFromPayload(payload) {
+  return payload?.result?.json ?? payload?.json ?? payload;
+}
+
+function summaryFromPayload(payload) {
+  const json = jsonFromPayload(payload);
+  return json?.summary ?? json;
+}
+
+function releaseSummaryTitle(summary) {
+  if (summary?.releaseType === 'base') {
+    if (summary.status === 'active-base') {
+      return 'Base 包发布完成';
+    }
+    if (summary.status === 'uploaded') {
+      return 'Base APK 上传完成';
+    }
+    if (summary.status === 'built') {
+      return 'Base 构建完成';
+    }
+  }
+  if (summary?.releaseType === 'patch') {
+    if (summary.status === 'patch-recorded') {
+      return '热更发布完成';
+    }
+    if (summary.status === 'patch-verified') {
+      return '热更资源发布完成';
+    }
+    if (summary.status === 'built') {
+      return 'Patch 构建完成';
+    }
+    if (summary.status === 'checked') {
+      return '热更兼容性检测完成';
+    }
+  }
+  if (summary?.releaseType === 'wechat-development' && summary.status === 'exported') {
+    return '微信开发包导出完成';
+  }
+  if (summary?.releaseType === 'wechat-resource-upload' && summary.status === 'resources-verified') {
+    return '微信开发包资源上传完成';
+  }
+  if (summary?.releaseType === 'wechat-dev-upload' && summary.status === 'wechat-dev-uploaded') {
+    return '微信开发版本上传完成';
+  }
+  if (summary?.releaseType === 'wechat-preview' && summary.status === 'wechat-preview-ready') {
+    return '微信预览二维码已生成';
+  }
+  return null;
+}
+
+function commitSubject(commit) {
+  return commit?.pullRequestLabel
+    ? `${commit.subject} (${commit.pullRequestLabel})`
+    : commit?.subject;
+}
+
+function appendChangeSummary(lines, summary) {
+  const changes = summary?.versionDiff?.summary;
+  if (!Array.isArray(changes) || changes.length === 0) {
+    return;
+  }
+  lines.push('', '本次包含改动：');
+  for (const item of changes) {
+    const text = String(item).trim();
+    if (text.length > 0) {
+      lines.push(text.startsWith('- ') ? text : `- ${text}`);
+    }
+  }
+}
+
+function releaseSummaryText(payload) {
+  const json = jsonFromPayload(payload);
+  const summary = summaryFromPayload(payload);
+  const title = releaseSummaryTitle(summary);
+  if (!title || summary?.ok !== true) {
+    return null;
+  }
+
+  const manifest = summary.releaseManifest ?? {};
+  const release = summary.release ?? {};
+  const activeBase = summary.activeBase ?? summary.progress?.activeBase ?? {};
+  const summaryPath = summary.summaryPath ?? json?.files?.summary?.path;
+  const projectCommit = summary.projectCommit ?? activeBase.projectCommit ?? release.projectCommit ?? summary.versionDiff?.toCommit;
+  const branch = summary.branch ?? activeBase.projectBranch ?? release.projectBranch;
+  const projectSha = summary.projectSha ?? activeBase.projectSha ?? release.projectSha;
+  const lines = [`## ${title}`];
+
+  if (summary.releaseType === 'base') {
+    lines.push(
+      line('AppVersion', activeBase.appVersion ?? release.appVersion),
+      line('发布分支', `${valueOrMissing(branch)}@${shortSha(projectSha)}`),
+      line('提交内容', commitSubject(projectCommit)),
+      line('任务ID', summary.jobId),
+      line('ActiveBase', activeBase.baseReleaseId ?? release.releaseId),
+      line('下载 APK', summary.apkDownloadUrl ?? activeBase.apkDownloadUrl),
+      line('大小', formatBytes(summary.apkBytes)),
+      line('SHA256', summary.apkSha256),
+      line('用时', summary.buildDuration?.text),
+    );
+    appendChangeSummary(lines, summary);
+  } else if (summary.releaseType === 'patch') {
+    lines.push(
+      line('发布分支', `${valueOrMissing(branch)}@${shortSha(projectSha)}`),
+      line('提交内容', commitSubject(projectCommit)),
+      line('任务ID', summary.jobId),
+      line('ActiveBase', activeBase.baseReleaseId ?? release.baseReleaseId),
+      line('PatchLevel', release.patchLevel),
+      line('PatchCode', release.patchCode ?? activeBase.patchCode),
+      line('远端目录', release.remoteRoot ?? activeBase.remoteRoot),
+      line('用时', summary.buildDuration?.text),
+    );
+  } else if (summary.releaseType === 'wechat-development') {
+    lines.push(
+      line('导出分支', `${valueOrMissing(branch)}@${shortSha(projectSha)}`),
+      line('任务ID', summary.jobId),
+      line('AppVersion', manifest.appVersion),
+      line('PatchCode', manifest.patchCode),
+      line('Data CDN', manifest.dataCdn),
+      line('主包大小', formatBytes(summary.artifactSummary?.mainPackageBytes)),
+      line('小游戏工程', summary.paths?.minigamePath),
+      line('用时', summary.buildDuration?.text),
+    );
+  } else if (summary.releaseType === 'wechat-resource-upload') {
+    lines.push(
+      line('来源导出任务', summary.sourceExportJobId),
+      line('任务ID', summary.jobId),
+      line('AppVersion', manifest.appVersion),
+      line('PatchCode', manifest.patchCode),
+      line('Data CDN', manifest.dataCdn),
+      line('远端目录', summary.remoteRoot),
+      line('公网校验', Array.isArray(summary.wechatResourceVerifyEvidence?.files) ? `${summary.wechatResourceVerifyEvidence.files.length} 个文件` : null),
+      line('用时', summary.buildDuration?.text),
+    );
+  } else {
+    lines.push(
+      line('任务ID', summary.jobId),
+      line('来源资源任务', summary.sourceResourceJobId),
+      line('来源导出任务', summary.sourceExportJobId),
+      line('AppVersion', manifest.appVersion),
+      line('PatchCode', manifest.patchCode),
+      line('Data CDN', manifest.dataCdn),
+      line('二维码', summary.qrcodePath),
+      line('用时', summary.buildDuration?.text),
+    );
+  }
+
+  lines.push('', line('详细记录', summaryPath));
+  return lines.join('\n');
+}
+
+function setActionResult(source, kind, title, value) {
+  const summaryText = kind === 'ok' ? releaseSummaryText(value) : null;
+  if (summaryText) {
+    setActionSummary(source, title, summaryText);
+    return;
+  }
+  setActionStatus(source, kind, title, value);
+}
+
+function copyText(text) {
+  if (navigator.clipboard?.writeText) {
+    return navigator.clipboard.writeText(text);
+  }
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', '');
+  textarea.style.position = 'fixed';
+  textarea.style.left = '-9999px';
+  document.body.append(textarea);
+  textarea.select();
+  const ok = document.execCommand('copy');
+  textarea.remove();
+  if (!ok) {
+    throw new Error('复制失败：document.execCommand(\"copy\") returned false.');
+  }
+  return Promise.resolve();
 }
 
 function setApiState(kind, text) {
@@ -496,11 +717,12 @@ async function pollReleaseProgress(commandId) {
 
   if (finished) {
     const kind = finishedOk ? 'ok' : 'error';
+    const resultPayload = job ?? compactJob ?? { apiRunId: apiRun?.metadata?.apiRunId ?? state.poll.apiRunId };
     markActionButton(state.poll.actionButton, kind);
-    setActionStatus(state.poll.statusElement, kind, '发布追踪结束', compactJob ?? { apiRunId: apiRun?.metadata?.apiRunId ?? state.poll.apiRunId });
+    setActionResult(state.poll.statusElement, kind, '发布追踪结束', resultPayload);
     clearPolling();
     setApiState('ok', '已连接');
-    log('发布追踪结束', compactJob ?? { apiRunId: apiRun?.metadata?.apiRunId ?? state.poll.apiRunId });
+    log('发布追踪结束', resultPayload);
   } else {
     setApiState('ok', '执行中');
     setActionStatus(state.poll.statusElement, 'running', '发布执行中', {
@@ -593,7 +815,7 @@ async function handleAction(action, feedbackSource = null) {
     const result = await apiRun('jobStatus');
     const kind = responseSucceeded(result) ? 'ok' : 'error';
     markActionButton(feedbackSource, kind);
-    setActionStatus(feedbackSource, kind, '查询最近任务完成', result);
+    setActionResult(feedbackSource, kind, '查询最近任务完成', result);
     log('最近任务', result);
     return;
   }
@@ -624,7 +846,7 @@ async function handleAction(action, feedbackSource = null) {
   } else {
     const kind = responseSucceeded(result) ? 'ok' : 'error';
     markActionButton(feedbackSource, kind);
-    setActionStatus(feedbackSource, kind, `${label}完成`, result);
+    setActionResult(feedbackSource, kind, `${label}完成`, result);
   }
 }
 
@@ -671,6 +893,18 @@ function bindEvents() {
   $('#openSettings').addEventListener('click', openSettings);
   $('#clearLog').addEventListener('click', () => {
     $('#logOutput').textContent = '等待操作。';
+  });
+  $all('.action-status').forEach((status) => {
+    status.addEventListener('click', () => {
+      const text = status.dataset.copyText;
+      if (!text) {
+        return;
+      }
+      copyText(text).then(() => {
+        status.textContent = `${status.dataset.displayText}\n\n已复制，可粘贴到企业微信。`;
+        log('复制发布总结', text);
+      });
+    });
   });
   $('#settingsForm').addEventListener('submit', (event) => {
     event.preventDefault();

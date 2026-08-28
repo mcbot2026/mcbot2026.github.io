@@ -359,6 +359,10 @@ h2 {
   color: #ffd2d9;
 }
 
+.action-status.copyable {
+  cursor: copy;
+}
+
 .button-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
