@@ -1,4 +1,17 @@
 const STORAGE_KEY = 'mergedemo.release.console.config.v1';
+const POLL_INTERVAL_MS = 5000;
+const TERMINAL_JOB_STATUSES = new Set([
+  'blocked',
+  'built',
+  'complete',
+  'dry-run',
+  'exported',
+  'failed',
+  'patch-recorded',
+  'published',
+  'recovered',
+  'resources-verified',
+]);
 
 const state = {
   view: 'overview',
@@ -8,6 +21,12 @@ const state = {
   },
   config: loadConfig(),
   lastStatus: null,
+  poll: {
+    handle: null,
+    apiRunId: null,
+    jobId: null,
+    signature: '',
+  },
 };
 
 const viewMeta = {
@@ -128,6 +147,15 @@ async function apiRun(commandId, params = {}, execute = false) {
   return readApiResponse(response);
 }
 
+async function apiRunStatus(apiRunId) {
+  return apiGet(`/api/api-run-status?apiRunId=${encodeURIComponent(apiRunId)}`);
+}
+
+async function apiJobStatus(jobId) {
+  const suffix = jobId ? `?jobId=${encodeURIComponent(jobId)}` : '';
+  return apiGet(`/api/job-status${suffix}`);
+}
+
 function stackOf(error) {
   return error?.stack ?? `${error?.name ?? 'Error'}: ${error?.message ?? String(error)}`;
 }
@@ -155,6 +183,81 @@ function short(value, fallback = '-') {
 function latestJobFromStatus(status) {
   const json = status?.status?.json;
   return json?.latestJobSummary ?? json?.latestJob ?? null;
+}
+
+function jobIdFromText(text) {
+  const jsonMatch = text.match(/"jobId"\s*:\s*"([A-Za-z0-9._-]+)"/u);
+  if (jsonMatch) {
+    return jsonMatch[1];
+  }
+  const eventMatch = text.match(/\bjobId=([A-Za-z0-9._-]+)/u);
+  return eventMatch ? eventMatch[1] : null;
+}
+
+function jobIdFromPayload(payload) {
+  return payload?.result?.json?.jobId
+    ?? payload?.result?.json?.summary?.jobId
+    ?? payload?.result?.jobId
+    ?? payload?.jobId
+    ?? null;
+}
+
+function apiRunIdFromPayload(payload) {
+  return payload?.result?.apiRunId ?? payload?.apiRunId ?? null;
+}
+
+function updateJobInputs(jobId, commandId = '') {
+  if (!jobId) {
+    return;
+  }
+  $('#taskJobId').value = jobId;
+  if (commandId.includes('Base') || jobId.startsWith('base-')) {
+    $('#baseJobId').value = jobId;
+  }
+  if (commandId.includes('Patch') || jobId.startsWith('patch-')) {
+    $('#patchJobId').value = jobId;
+  }
+  if (jobId.startsWith('wechat-')) {
+    $('#wechatJobId').value = jobId;
+  }
+}
+
+function compactJobStatus(payload) {
+  const json = payload?.result?.json ?? payload?.json ?? payload;
+  const summary = json?.summary ?? null;
+  return {
+    jobId: json?.jobId ?? summary?.jobId ?? null,
+    status: summary?.status ?? json?.status ?? null,
+    ok: summary?.ok ?? json?.ok ?? null,
+    releaseType: summary?.releaseType ?? null,
+    branch: summary?.branch ?? null,
+    activeProcess: summary?.activeProcess ?? null,
+  };
+}
+
+function terminalJobStatus(status) {
+  return typeof status === 'string' && TERMINAL_JOB_STATUSES.has(status);
+}
+
+function clearPolling() {
+  if (state.poll.handle !== null) {
+    window.clearInterval(state.poll.handle);
+  }
+  state.poll = {
+    handle: null,
+    apiRunId: null,
+    jobId: null,
+    signature: '',
+  };
+}
+
+function logPolling(title, value) {
+  const signature = JSON.stringify(value);
+  if (signature === state.poll.signature) {
+    return;
+  }
+  state.poll.signature = signature;
+  log(title, value);
 }
 
 function renderStatus(data) {
@@ -231,12 +334,75 @@ function openSettings() {
   $('#settingsDialog').showModal();
 }
 
-async function refreshStatus() {
+async function refreshStatus(writeLog = true) {
   const health = await apiGet('/api/health', false);
   setApiState('ok', '已连接');
   const status = await apiGet('/api/status');
   renderStatus(status);
-  log('刷新状态', { health, status });
+  if (writeLog) {
+    log('刷新状态', { health, status });
+  }
+}
+
+async function pollReleaseProgress(commandId) {
+  let apiRun = null;
+  let job = null;
+  let apiRunAlive = false;
+
+  if (state.poll.apiRunId) {
+    apiRun = await apiRunStatus(state.poll.apiRunId);
+    apiRunAlive = apiRun?.process?.alive === true;
+    const foundJobId = jobIdFromText(`${apiRun.stdoutTail}\n${apiRun.stderrTail}`);
+    if (foundJobId && !state.poll.jobId) {
+      state.poll.jobId = foundJobId;
+      updateJobInputs(foundJobId, commandId);
+    }
+  }
+
+  if (state.poll.jobId) {
+    job = await apiJobStatus(state.poll.jobId);
+    const compact = compactJobStatus(job);
+    updateJobInputs(compact.jobId, commandId);
+  }
+
+  const compactJob = job ? compactJobStatus(job) : null;
+  logPolling('发布进度', {
+    commandId,
+    apiRunId: state.poll.apiRunId,
+    apiRunAlive,
+    job: compactJob,
+    stderrTail: apiRun?.stderrTail ? apiRun.stderrTail.split(/\r?\n/u).slice(-8).join('\n') : null,
+  });
+
+  const finished = (!state.poll.apiRunId || !apiRunAlive) && (!compactJob || terminalJobStatus(compactJob.status));
+  await refreshStatus(false);
+
+  if (finished) {
+    clearPolling();
+    setApiState('ok', '已连接');
+    log('发布追踪结束', compactJob ?? { apiRunId: apiRun?.metadata?.apiRunId ?? state.poll.apiRunId });
+  } else {
+    setApiState('ok', '执行中');
+  }
+}
+
+function startReleasePolling(commandId, { apiRunId, jobId }) {
+  clearPolling();
+  state.poll.apiRunId = apiRunId;
+  state.poll.jobId = jobId;
+  updateJobInputs(jobId, commandId);
+  setApiState('ok', '执行中');
+  log('开始追踪发布', { commandId, apiRunId, jobId });
+
+  const runOnce = () => {
+    pollReleaseProgress(commandId).catch((error) => {
+      setApiState('error', '追踪异常');
+      log('发布追踪失败', stackOf(error));
+      clearPolling();
+    });
+  };
+  runOnce();
+  state.poll.handle = window.setInterval(runOnce, POLL_INTERVAL_MS);
 }
 
 function valueOf(selector) {
@@ -309,15 +475,11 @@ async function handleAction(action) {
   const commandId = commandIdFor(action);
   const result = await apiRun(commandId, paramsFor(action), execute);
   log(actionLabels[action] ?? commandId, result);
-  const jobId = result?.result?.json?.jobId ?? result?.result?.jobId ?? result?.result?.json?.summary?.jobId;
-  if (jobId) {
-    $('#taskJobId').value = jobId;
-    if (commandId.includes('Base')) {
-      $('#baseJobId').value = jobId;
-    }
-    if (commandId.includes('Patch') || commandId === 'checkPatch') {
-      $('#patchJobId').value = jobId;
-    }
+  const jobId = jobIdFromPayload(result);
+  const apiRunId = apiRunIdFromPayload(result);
+  updateJobInputs(jobId, commandId);
+  if (execute && (apiRunId || jobId)) {
+    startReleasePolling(commandId, { apiRunId, jobId });
   }
 }
 
